@@ -6,7 +6,6 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 1.5rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -111,6 +110,9 @@
     font-size: 0.9375rem;
     font-weight: 500;
     color: #4b5563;
+    line-height: 1;
+    display: flex;
+    align-items: center;
 }
 
 .user-menu-container {
@@ -124,13 +126,9 @@
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0.25rem;
+    padding: 0;
     border-radius: 8px;
-    transition: background-color 0.2s ease;
-}
-
-.user-avatar-btn:hover {
-    background: #f9fafb;
+    transition: none;
 }
 
 .user-avatar {
@@ -151,6 +149,8 @@
     color: #6b7280;
     font-size: 1.25rem;
     transition: transform 0.2s ease;
+    display: flex;
+    align-items: center;
 }
 
 .user-avatar-btn:hover .user-dropdown-icon {

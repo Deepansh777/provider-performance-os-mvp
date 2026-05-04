@@ -16,4 +16,10 @@ export const healthAPI = {
   getRoot: () => api.get('/'),
 };
 
+// Organizations API
+export const organizationsAPI = {
+  getAll: () => api.get('/api/organizations'),
+  getById: (id) => api.get(`/api/organizations/${id}`),
+};
+
 export default api;

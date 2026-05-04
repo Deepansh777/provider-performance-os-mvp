@@ -116,20 +116,9 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-top: 1rem;
   /* box-shadow: 0 4px 12px rgba(56, 181, 156, 0.3); */
 }
 
-button:hover {
-  background: #2d9681;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(56, 181, 156, 0.4);
-}
-
-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(56, 181, 156, 0.3);
-}
 
 /* Responsive design */
 @media (max-width: 768px) {
