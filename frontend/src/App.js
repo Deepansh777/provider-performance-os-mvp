@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { healthAPI } from './api';
+import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 
 function App() {
@@ -27,8 +28,14 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <Sidebar />
+    <div className="app-wrapper">
+      <Navbar isAdmin={true} />
+      <div className="app-container">
+        <Sidebar />
+        <div className="main-content">
+          {/* Main content area - dashboard will go here */}
+        </div>
+      </div>
     </div>
   );
 }
