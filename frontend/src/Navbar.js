@@ -1,19 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { MdKeyboardArrowDown, MdLogout } from 'react-icons/md';
+import { Select, MenuItem, FormControl } from '@mui/material';
+import { organizationsAPI } from './api';
 
 const Navbar = ({ isAdmin = true }) => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
-    const [selectedProviderGroup, setSelectedProviderGroup] = useState('North Valley ACO');
+    const [organizations, setOrganizations] = useState([]);
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
+    const [loading, setLoading] = useState(true);
     const menuRef = useRef(null);
-
-    // Mock provider groups - this would come from your API
-    const providerGroups = [
-        { id: 1, name: 'North Valley ACO', members: 12450 },
-        { id: 2, name: 'South Bay Medical Group', members: 8230 },
-        { id: 3, name: 'East Coast Health Partners', members: 15670 },
-        { id: 4, name: 'West Region Physicians', members: 9845 }
-    ];
 
     // Mock user data - this would come from your auth context
     const user = {
@@ -21,6 +17,29 @@ const Navbar = ({ isAdmin = true }) => {
         lastName: 'Doe',
         initials: 'JD'
     };
+
+    // Fetch organizations on mount
+    useEffect(() => {
+        const fetchOrganizations = async () => {
+            try {
+                setLoading(true);
+                const response = await organizationsAPI.getAll();
+                if (response.data.success) {
+                    setOrganizations(response.data.data);
+                    // Set first organization as default if available
+                    if (response.data.data.length > 0) {
+                        setSelectedOrganizationId(response.data.data[0].id);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch organizations:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchOrganizations();
+    }, []);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -39,10 +58,16 @@ const Navbar = ({ isAdmin = true }) => {
         };
     }, [userMenuOpen]);
 
-    const handleProviderGroupChange = (e) => {
-        setSelectedProviderGroup(e.target.value);
+    const handleProviderGroupChange = (event) => {
+        setSelectedOrganizationId(event.target.value);
         // Here you would trigger a global state update or context change
-        console.log('Provider group changed to:', e.target.value);
+        const selectedOrg = organizations.find(org => org.id === event.target.value);
+        console.log('Organization changed to:', selectedOrg);
+    };
+
+    const getSelectedOrganizationName = () => {
+        const org = organizations.find(o => o.id === selectedOrganizationId);
+        return org ? org.organization_name : '';
     };
 
     const handleUserMenuToggle = () => {
@@ -63,22 +88,47 @@ const Navbar = ({ isAdmin = true }) => {
                 <div className="provider-group-section">
                     <span className="provider-label">Provider Group:</span>
                     {isAdmin ? (
-                        <div className="provider-dropdown-wrapper">
-                            <select
-                                className="provider-dropdown"
-                                value={selectedProviderGroup}
+                        <FormControl size="small" className="provider-dropdown-wrapper">
+                            <Select
+                                value={selectedOrganizationId}
                                 onChange={handleProviderGroupChange}
+                                disabled={loading}
+                                displayEmpty
+                                className="mui-provider-dropdown"
+                                sx={{
+                                    backgroundColor: '#f9fafb',
+                                    borderRadius: '8px',
+                                    minWidth: '220px',
+                                    fontSize: '0.9375rem',
+                                    fontWeight: 600,
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#e5e7eb',
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#d1d5db',
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '1px',
+                                    },
+                                    '& .MuiSelect-select': {
+                                        padding: '0.5rem 0.875rem',
+                                    }
+                                }}
                             >
-                                {providerGroups.map(group => (
-                                    <option key={group.id} value={group.name}>
-                                        {group.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <MdKeyboardArrowDown className="dropdown-icon" />
-                        </div>
+                                {loading ? (
+                                    <MenuItem value="">Loading...</MenuItem>
+                                ) : (
+                                    organizations.map((org) => (
+                                        <MenuItem key={org.id} value={org.id}>
+                                            {org.organization_name}
+                                        </MenuItem>
+                                    ))
+                                )}
+                            </Select>
+                        </FormControl>
                     ) : (
-                        <span className="provider-text">{selectedProviderGroup}</span>
+                        <span className="provider-text">{getSelectedOrganizationName()}</span>
                     )}
                 </div>
             </div>
