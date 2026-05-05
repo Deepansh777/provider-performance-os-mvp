@@ -1,14 +1,14 @@
 """
-Simple FastAPI Health Check API
+Provider Performance OS MVP API
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import organizations
+from routers import organizations, provider_snapshot
 
 app = FastAPI(
-    title="Health Check API",
-    description="Simple health check endpoint",
+    title="Provider Performance OS API",
+    description="Value-based performance tracking and analytics",
     version="1.0.0"
 )
 
@@ -23,13 +23,14 @@ app.add_middleware(
 
 # Include routers
 app.include_router(organizations.router)
+app.include_router(provider_snapshot.router)
 
 
 @app.get("/")
 async def root():
     """Root endpoint - API health check"""
     return {
-        "message": "Health Check API",
+        "message": "Provider Performance OS API",
         "version": "1.0.0",
         "status": "healthy"
     }
