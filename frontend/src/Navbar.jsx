@@ -4,7 +4,7 @@ import { MdKeyboardArrowDown, MdLogout } from 'react-icons/md';
 import { Select, MenuItem, FormControl } from '@mui/material';
 import { organizationsAPI } from './api';
 
-const Navbar = ({ isAdmin = true }) => {
+const Navbar = ({ isAdmin = true, onOrganizationChange }) => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [organizations, setOrganizations] = useState([]);
     const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
@@ -28,7 +28,12 @@ const Navbar = ({ isAdmin = true }) => {
                     setOrganizations(response.data.data);
                     // Set first organization as default if available
                     if (response.data.data.length > 0) {
-                        setSelectedOrganizationId(response.data.data[0].id);
+                        const firstOrgId = response.data.data[0].id;
+                        setSelectedOrganizationId(firstOrgId);
+                        // Notify parent of initial organization
+                        if (onOrganizationChange) {
+                            onOrganizationChange(firstOrgId);
+                        }
                     }
                 }
             } catch (error) {
@@ -59,10 +64,12 @@ const Navbar = ({ isAdmin = true }) => {
     }, [userMenuOpen]);
 
     const handleProviderGroupChange = (event) => {
-        setSelectedOrganizationId(event.target.value);
-        // Here you would trigger a global state update or context change
-        const selectedOrg = organizations.find(org => org.id === event.target.value);
-        console.log('Organization changed to:', selectedOrg);
+        const orgId = event.target.value;
+        setSelectedOrganizationId(orgId);
+        // Notify parent component of organization change
+        if (onOrganizationChange) {
+            onOrganizationChange(orgId);
+        }
     };
 
     const getSelectedOrganizationName = () => {

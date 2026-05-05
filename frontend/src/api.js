@@ -22,4 +22,16 @@ export const organizationsAPI = {
   getById: (id) => api.get(`/api/organizations/${id}`),
 };
 
+// Providers API
+export const providersAPI = {
+  getAll: (organizationId = null) => {
+    const params = organizationId ? `?organization_id=${organizationId}` : '';
+    return api.get(`/api/providers${params}`);
+  },
+  getSnapshot: (providerId, reportingPeriod = '2025-12-31') =>
+    api.get(`/api/providers/${providerId}/snapshot?reporting_period=${reportingPeriod}`),
+  getDomains: (providerId, reportingPeriod = '2025-12-31') =>
+    api.get(`/api/providers/${providerId}/domains?reporting_period=${reportingPeriod}`),
+};
+
 export default api;

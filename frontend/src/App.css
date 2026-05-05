@@ -20,6 +20,7 @@ body {
 
 .app-container {
   display: flex;
+  flex-direction: row;
   flex: 1;
   height: calc(100vh - 64px);
   overflow: hidden;
@@ -152,5 +153,71 @@ button {
 
   .status h2 {
     font-size: 1.5rem;
+  }
+}
+
+/* Snapshot Container */
+.snapshot-container {
+  background: white;
+  border-radius: 8px;
+  padding: 1.1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.snapshot-metrics {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.metric-item {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.change-positive {
+  color: #10b981;
+}
+
+.change-negative {
+  color: #ef4444;
+}
+
+@media (max-width: 1200px) {
+  .snapshot-metrics {
+    gap: 1.5rem;
+  }
+
+  .metric-item {
+    min-width: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .snapshot-metrics {
+    flex-direction: column;
+  }
+
+  .metric-item {
+    min-width: 100%;
   }
 }
