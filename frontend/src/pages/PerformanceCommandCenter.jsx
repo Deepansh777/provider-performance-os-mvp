@@ -1,5 +1,6 @@
 import React from 'react';
 import VisualizationCard from '../components/VisualizationCard';
+import EarningsWaterfallChart from '../components/EarningsWaterfallChart';
 
 const PerformanceCommandCenter = ({ snapshot, domains }) => {
   // Format currency
@@ -233,6 +234,25 @@ const PerformanceCommandCenter = ({ snapshot, domains }) => {
                   </tbody>
                 </table>
               </div>
+            </VisualizationCard>
+          )}
+
+          {/* Earnings Waterfall Chart */}
+          {domains && domains.length > 0 && (
+            <VisualizationCard
+              title="Earnings Waterfall"
+              data={domains}
+              csvFilename={`earnings-waterfall-${snapshot.provider_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`}
+              csvHeaders={['Domain', 'Earned ($)', 'Missed ($)', 'Available ($)', 'Capture Rate (%)']}
+              csvMapper={(domain) => [
+                domain.domain_name,
+                domain.earned_amount,
+                domain.missed_amount,
+                domain.available_amount,
+                domain.capture_rate.toFixed(1)
+              ]}
+            >
+              <EarningsWaterfallChart domains={domains} />
             </VisualizationCard>
           )}
         </>
