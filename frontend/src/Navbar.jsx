@@ -44,7 +44,7 @@ const Navbar = ({ isAdmin = true, onOrganizationChange }) => {
         };
 
         fetchOrganizations();
-    }, []);
+    }, [onOrganizationChange]);
 
     // Close menu when clicking outside
     useEffect(() => {
