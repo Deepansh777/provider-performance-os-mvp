@@ -191,8 +191,8 @@ const PerformanceCommandCenter = ({ snapshot, domains }) => {
                         <td className="text-center">{domain.domain_weight}%</td>
                         <td className="text-center score-cell">
                           <span className={`score-badge ${domain.r12_score >= 90 ? 'score-excellent' :
-                              domain.r12_score >= 75 ? 'score-good' :
-                                domain.r12_score >= 60 ? 'score-fair' : 'score-poor'
+                            domain.r12_score >= 75 ? 'score-good' :
+                              domain.r12_score >= 60 ? 'score-fair' : 'score-poor'
                             }`}>
                             {domain.r12_score}
                           </span>
@@ -213,7 +213,7 @@ const PerformanceCommandCenter = ({ snapshot, domains }) => {
                         <td className="text-center">
                           <div className="capture-rate-cell">
                             <span className={`capture-rate ${domain.capture_rate >= 70 ? 'rate-high' :
-                                domain.capture_rate >= 50 ? 'rate-medium' : 'rate-low'
+                              domain.capture_rate >= 50 ? 'rate-medium' : 'rate-low'
                               }`}>
                               {domain.capture_rate.toFixed(1)}%
                             </span>
