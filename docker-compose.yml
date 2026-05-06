@@ -33,6 +33,10 @@ services:
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: http://localhost:3000,http://localhost:80
+      # AWS Cognito Configuration
+      COGNITO_REGION: ${COGNITO_REGION:-us-east-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-us-east-1_zk3y8XtoK}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID}
     ports:
       - "8000:8000"
     volumes:
@@ -55,6 +59,11 @@ services:
     environment:
       REACT_APP_API_URL: http://localhost:8000
       CHOKIDAR_USEPOLLING: "true"
+      # Development Mode
+      REACT_APP_DISABLE_AUTH: ${REACT_APP_DISABLE_AUTH:-false}
+      # AWS Cognito Configuration
+      REACT_APP_COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-us-east-1_zk3y8XtoK}
+      REACT_APP_COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID}
     ports:
       - "3000:3000"
     volumes:

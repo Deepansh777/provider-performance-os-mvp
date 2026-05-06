@@ -14,11 +14,21 @@ import CostUtilizationControl from './pages/CostUtilizationControl';
 import BenchmarksTrustCenter from './pages/BenchmarksTrustCenter';
 
 function App() {
+  // Dev mode check
+  const isDevMode = process.env.REACT_APP_DISABLE_AUTH === 'true';
+  
   // Authentication state
-  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(isDevMode);
+  const [user, setUser] = useState(isDevMode ? {
+    email: 'dev@localhost.com',
+    full_name: 'Dev User',
+    role: 'admin',
+    organization_id: 1,
+    login_enabled: true,
+    active_flag: true
+  } : null);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(!isDevMode);
 
   // App state
   const [snapshot, setSnapshot] = useState(null);
@@ -28,6 +38,13 @@ function App() {
 
   // Verify authentication on mount and refresh
   useEffect(() => {
+    // Skip auth check in dev mode
+    if (isDevMode) {
+      setAuthLoading(false);
+      setSelectedOrganizationId(1);
+      return;
+    }
+
     const checkAuth = async () => {
       try {
         const authenticated = await checkIsAuthenticated();
@@ -53,7 +70,7 @@ function App() {
     };
 
     checkAuth();
-  }, []);
+  }, [isDevMode]);
 
   // Handle successful login
   const handleLoginSuccess = async (userData, needsPasswordChange, token) => {
