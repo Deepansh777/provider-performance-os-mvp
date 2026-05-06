@@ -3,19 +3,44 @@ import './Navbar.css';
 import { MdKeyboardArrowDown, MdLogout } from 'react-icons/md';
 import { Select, MenuItem, FormControl } from '@mui/material';
 import { organizationsAPI } from './api';
+import { logout } from './authUtils';
 
-const Navbar = ({ isAdmin = true, onOrganizationChange }) => {
+const Navbar = ({ isAdmin = true, onOrganizationChange, user: authUser }) => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [organizations, setOrganizations] = useState([]);
     const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
     const [loading, setLoading] = useState(true);
     const menuRef = useRef(null);
 
-    // Mock user data - this would come from your auth context
-    const user = {
+    // Get user data from auth context or use mock data
+    const user = authUser || {
         firstName: 'John',
         lastName: 'Doe',
         initials: 'JD'
+    };
+
+    // Extract initials from full_name if available
+    const getInitials = () => {
+        if (authUser?.full_name) {
+            const names = authUser.full_name.split(' ');
+            return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
+        return user.initials;
+    };
+
+    const getUserFirstName = () => {
+        if (authUser?.full_name) {
+            return authUser.full_name.split(' ')[0];
+        }
+        return user.firstName;
+    };
+
+    const getUserLastName = () => {
+        if (authUser?.full_name) {
+            const names = authUser.full_name.split(' ');
+            return names.length > 1 ? names[names.length - 1] : '';
+        }
+        return user.lastName;
     };
 
     // Fetch organizations on mount
@@ -85,6 +110,11 @@ const Navbar = ({ isAdmin = true, onOrganizationChange }) => {
         setUserMenuOpen(false);
     };
 
+    const handleLogout = () => {
+        handleUserMenuClose();
+        logout();
+    };
+
     return (
         <nav className="navbar">
             <div className="navbar-left">
@@ -142,21 +172,21 @@ const Navbar = ({ isAdmin = true, onOrganizationChange }) => {
 
             <div className="navbar-right">
                 <div className="user-section">
-                    <span className="user-greeting">Welcome, {user.firstName} {user.lastName}</span>
+                    <span className="user-greeting">Welcome, {getUserFirstName()} {getUserLastName()}</span>
                     <div className="user-menu-container" ref={menuRef}>
                         <button
                             className="user-avatar-btn"
                             onClick={handleUserMenuToggle}
                         >
                             <div className="user-avatar">
-                                {user.initials}
+                                {getInitials()}
                             </div>
                             <MdKeyboardArrowDown className="user-dropdown-icon" />
                         </button>
 
                         {userMenuOpen && (
                             <div className="user-dropdown-menu">
-                                <button className="user-dropdown-item logout" onClick={handleUserMenuClose}>
+                                <button className="user-dropdown-item logout" onClick={handleLogout}>
                                     <MdLogout className="dropdown-item-icon" />
                                     <span>Log Out</span>
                                 </button>

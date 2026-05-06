@@ -2,8 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { providersAPI } from './api';
+import { verifyToken, isAuthenticated as checkIsAuthenticated } from './authUtils';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
 import PerformanceCommandCenter from './pages/PerformanceCommandCenter';
 import PopulationRiskIntelligence from './pages/PopulationRiskIntelligence';
 import QualityAccessImprovement from './pages/QualityAccessImprovement';
@@ -11,10 +14,73 @@ import CostUtilizationControl from './pages/CostUtilizationControl';
 import BenchmarksTrustCenter from './pages/BenchmarksTrustCenter';
 
 function App() {
+  // Authentication state
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // App state
   const [snapshot, setSnapshot] = useState(null);
   const [domains, setDomains] = useState(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Verify authentication on mount and refresh
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const authenticated = await checkIsAuthenticated();
+        if (authenticated) {
+          // Verify with backend and get user data
+          const userData = await verifyToken();
+          if (userData) {
+            setUser(userData);
+            setIsUserAuthenticated(true);
+            setSelectedOrganizationId(userData.organization_id);
+          } else {
+            setIsUserAuthenticated(false);
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsUserAuthenticated(false);
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Handle successful login
+  const handleLoginSuccess = async (userData, needsPasswordChange, token) => {
+    if (needsPasswordChange) {
+      setPasswordChangeRequired(true);
+    } else {
+      // Fetch user data from backend
+      const backendUser = await verifyToken();
+      if (backendUser) {
+        setUser(backendUser);
+        setIsUserAuthenticated(true);
+        setSelectedOrganizationId(backendUser.organization_id);
+      }
+    }
+  };
+
+  // Handle successful password change
+  const handlePasswordChanged = async () => {
+    setPasswordChangeRequired(false);
+    // Fetch user data from backend after password change
+    const backendUser = await verifyToken();
+    if (backendUser) {
+      setUser(backendUser);
+      setIsUserAuthenticated(true);
+      setSelectedOrganizationId(backendUser.organization_id);
+    }
+  };
 
   const fetchSnapshotForOrganization = useCallback(async (organizationId) => {
     try {
@@ -54,10 +120,36 @@ function App() {
     setSelectedOrganizationId(organizationId);
   }, []);
 
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{ color: 'white', fontSize: '18px' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isUserAuthenticated && !passwordChangeRequired) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show change password page if password change is required
+  if (passwordChangeRequired) {
+    return <ChangePassword onPasswordChanged={handlePasswordChanged} />;
+  }
+
+  // Show main app if authenticated
   return (
     <BrowserRouter>
       <div className="app-wrapper">
-        <Navbar isAdmin={true} onOrganizationChange={handleOrganizationChange} />
+        <Navbar isAdmin={true} user={user} onOrganizationChange={handleOrganizationChange} />
         <div className="app-container">
           <Sidebar onToggleCollapse={setIsSidebarCollapsed} />
           <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''}`}>
