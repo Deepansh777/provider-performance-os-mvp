@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { healthAPI, providersAPI } from './api';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import PerformanceCommandCenter from './pages/PerformanceCommandCenter';
+import PopulationRiskIntelligence from './pages/PopulationRiskIntelligence';
+import QualityAccessImprovement from './pages/QualityAccessImprovement';
+import CostUtilizationControl from './pages/CostUtilizationControl';
+import BenchmarksTrustCenter from './pages/BenchmarksTrustCenter';
 
 function App() {
   const [health, setHealth] = useState(null);
@@ -61,48 +67,24 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper">
-      <Navbar isAdmin={true} onOrganizationChange={handleOrganizationChange} />
-      <div className="app-container">
-        <Sidebar />
-        <div className="main-content">
-          {snapshot && (
-            <div className="snapshot-container">
-              <div className="snapshot-metrics">
-                <div className="metric-item">
-                  <div className="metric-label">Provider Name</div>
-                  <div className="metric-value">{snapshot.provider_name}</div>
-                </div>
-
-                <div className="metric-item">
-                  <div className="metric-label">Reporting Period</div>
-                  <div className="metric-value">{snapshot.rolling_window_display}</div>
-                </div>
-
-                <div className="metric-item">
-                  <div className="metric-label">Attributed Members (Current Month)</div>
-                  <div className="metric-value">{snapshot.attributed_members_current?.toLocaleString()}</div>
-                </div>
-
-                <div className="metric-item">
-                  <div className="metric-label">Net Member Change (vs Prior 12 Mo)</div>
-                  <div className="metric-value">
-                    <span className={snapshot.net_member_change >= 0 ? 'change-positive' : 'change-negative'}>
-                      {snapshot.net_member_change > 0 ? '+' : ''}{snapshot.net_member_change}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="metric-item">
-                  <div className="metric-label">Avg Risk Score (R12)</div>
-                  <div className="metric-value">{snapshot.avg_risk_score_r12}</div>
-                </div>
-              </div>
-            </div>
-          )}
+    <BrowserRouter>
+      <div className="app-wrapper">
+        <Navbar isAdmin={true} onOrganizationChange={handleOrganizationChange} />
+        <div className="app-container">
+          <Sidebar />
+          <div className="main-content">
+            <Routes>
+              <Route path="/" element={<Navigate to="/performance" replace />} />
+              <Route path="/performance" element={<PerformanceCommandCenter snapshot={snapshot} />} />
+              <Route path="/population" element={<PopulationRiskIntelligence snapshot={snapshot} />} />
+              <Route path="/quality" element={<QualityAccessImprovement snapshot={snapshot} />} />
+              <Route path="/cost" element={<CostUtilizationControl snapshot={snapshot} />} />
+              <Route path="/benchmarks" element={<BenchmarksTrustCenter snapshot={snapshot} />} />
+            </Routes>
+          </div>
         </div>
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
 

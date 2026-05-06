@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 import {
     MdDashboard,
@@ -12,33 +13,39 @@ import {
 
 const Sidebar = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [activeTab, setActiveTab] = useState('population');
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const menuItems = [
         {
             id: 'performance',
             name: 'Performance Command Center',
-            icon: <MdDashboard size={24} />
+            icon: <MdDashboard size={24} />,
+            path: '/performance'
         },
         {
             id: 'population',
             name: 'Population & Risk Intelligence',
-            icon: <MdPeople size={24} />
+            icon: <MdPeople size={24} />,
+            path: '/population'
         },
         {
             id: 'quality',
             name: 'Quality & Access Improvement',
-            icon: <MdHealthAndSafety size={24} />
+            icon: <MdHealthAndSafety size={24} />,
+            path: '/quality'
         },
         {
             id: 'cost',
             name: 'Cost & Utilization Control Center',
-            icon: <MdAttachMoney size={24} />
+            icon: <MdAttachMoney size={24} />,
+            path: '/cost'
         },
         {
             id: 'benchmarks',
             name: 'Benchmarks & Trust Center',
-            icon: <MdBarChart size={24} />
+            icon: <MdBarChart size={24} />,
+            path: '/benchmarks'
         }
     ];
 
@@ -68,8 +75,8 @@ const Sidebar = () => {
                 {menuItems.map((item) => (
                     <button
                         key={item.id}
-                        className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                        onClick={() => setActiveTab(item.id)}
+                        className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                        onClick={() => navigate(item.path)}
                         title={isCollapsed ? item.name : ''}
                     >
                         <span className="nav-icon">{item.icon}</span>

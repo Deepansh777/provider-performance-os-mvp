@@ -202,6 +202,37 @@ button {
   color: #ef4444;
 }
 
+/* Page Container */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-container h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a5a4d;
+  margin-bottom: 1.5rem;
+}
+
+.content-section {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.content-section p {
+  color: #6b7280;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.change-negative {
+  color: #ef4444;
+}
+
 @media (max-width: 1200px) {
   .snapshot-metrics {
     gap: 1.5rem;
