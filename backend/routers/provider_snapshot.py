@@ -100,8 +100,8 @@ async def get_provider_snapshot(
                     c.contract_name,
                     c.payer_name,
                     %s::DATE as reporting_period,
-                    TO_CHAR(%s::DATE - INTERVAL '11 months', 'Mon-YY') || ' through ' || 
-                        TO_CHAR(%s::DATE, 'Mon-YY') as rolling_window_display,
+                    TO_CHAR(%s::DATE - INTERVAL '11 months', 'MM/DD/YYYY') || ' - ' || 
+                        TO_CHAR(%s::DATE, 'MM/DD/YYYY') as rolling_window_display,
                     COALESCE(ca.current_members, 0) as attributed_members_current,
                     COALESCE(ca.current_members, 0) - COALESCE(pa.prior_members, 0) as net_member_change,
                     ROUND(COALESCE(ca.avg_risk_score, 0), 2) as avg_risk_score_r12,
