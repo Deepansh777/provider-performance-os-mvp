@@ -1,0 +1,142 @@
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.login-content {
+  width: 100%;
+  max-width: 440px;
+}
+
+.login-paper {
+  border-radius: 16px !important;
+  overflow: hidden;
+  background: white !important;
+}
+
+.login-box {
+  padding: 48px 40px;
+}
+
+.login-title {
+  font-weight: 700 !important;
+  color: #1a202c;
+  margin-bottom: 8px !important;
+  text-align: center;
+  font-size: 28px !important;
+}
+
+.login-subtitle {
+  color: #718096;
+  margin-bottom: 32px !important;
+  text-align: center;
+  font-weight: 400 !important;
+}
+
+.login-alert {
+  margin-bottom: 24px !important;
+  border-radius: 8px !important;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-input {
+  background: white;
+}
+
+.login-input .MuiOutlinedInput-root {
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.login-input .MuiOutlinedInput-root:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.login-input .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.login-button {
+  margin-top: 8px !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  text-transform: none !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.login-button:hover {
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+.login-button:active {
+  transform: translateY(0);
+}
+
+.login-button:disabled {
+  background: #cbd5e0 !important;
+  box-shadow: none !important;
+  transform: none;
+}
+
+.login-footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.login-footer-text {
+  color: #718096;
+  font-size: 14px !important;
+  line-height: 1.6;
+}
+
+.login-footer-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.login-footer-link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .login-box {
+    padding: 32px 24px;
+  }
+
+  .login-title {
+    font-size: 24px !important;
+  }
+
+  .login-subtitle {
+    font-size: 14px !important;
+  }
+}
+
+/* Input autofill styling */
+.login-input input:-webkit-autofill,
+.login-input input:-webkit-autofill:hover,
+.login-input input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: #1a202c !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
