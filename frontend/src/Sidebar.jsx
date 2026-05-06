@@ -6,12 +6,10 @@ import {
     MdPeople,
     MdHealthAndSafety,
     MdAttachMoney,
-    MdBarChart,
-    MdChevronLeft,
-    MdChevronRight
+    MdBarChart
 } from 'react-icons/md';
 
-const Sidebar = () => {
+const Sidebar = ({ onToggleCollapse }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
@@ -50,7 +48,11 @@ const Sidebar = () => {
     ];
 
     const toggleSidebar = () => {
-        setIsCollapsed(!isCollapsed);
+        const newCollapsedState = !isCollapsed;
+        setIsCollapsed(newCollapsedState);
+        if (onToggleCollapse) {
+            onToggleCollapse(newCollapsedState);
+        }
     };
 
     return (
