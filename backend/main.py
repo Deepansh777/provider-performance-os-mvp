@@ -4,7 +4,7 @@ Provider Performance OS MVP API
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import organizations, provider_snapshot
+from routers import organizations, provider_snapshot, auth
 
 app = FastAPI(
     title="Provider Performance OS API",
@@ -22,6 +22,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router)
 app.include_router(organizations.router)
 app.include_router(provider_snapshot.router)
 
