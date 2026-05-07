@@ -54,14 +54,14 @@ const Navbar = ({ onOrganizationChange, user: authUser }) => {
                 const response = await organizationsAPI.getAll();
                 if (response.data.success) {
                     setOrganizations(response.data.data);
-                    
+
                     // Set selected organization based on user's organization_id or first available
                     if (response.data.data.length > 0) {
                         // For client users, use their organization_id
                         // For admin users, use their organization_id as default but allow switching
                         const defaultOrgId = authUser?.organization_id || response.data.data[0].id;
                         setSelectedOrganizationId(defaultOrgId);
-                        
+
                         // Notify parent of initial organization
                         if (onOrganizationChange) {
                             onOrganizationChange(defaultOrgId);
