@@ -16,7 +16,7 @@ import BenchmarksTrustCenter from './pages/BenchmarksTrustCenter';
 function App() {
   // Dev mode check
   const isDevMode = process.env.REACT_APP_DISABLE_AUTH === 'true';
-  
+
   // Authentication state
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(isDevMode);
   const [user, setUser] = useState(isDevMode ? {
@@ -166,7 +166,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app-wrapper">
-        <Navbar isAdmin={true} user={user} onOrganizationChange={handleOrganizationChange} />
+        <Navbar user={user} onOrganizationChange={handleOrganizationChange} />
         <div className="app-container">
           <Sidebar onToggleCollapse={setIsSidebarCollapsed} />
           <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''}`}>

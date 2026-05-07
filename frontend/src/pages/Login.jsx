@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { TextField, Button, Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import { TextField, Button, Box, Typography, Paper, Alert, CircularProgress, FormControlLabel, Checkbox } from '@mui/material';
 import { cognitoSignIn } from '../authUtils';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -58,7 +59,7 @@ function Login({ onLoginSuccess }) {
                             Provider Performance OS
                         </Typography>
                         <Typography variant="subtitle1" className="login-subtitle">
-                            Sign in to your account
+                            Sign In
                         </Typography>
 
                         {/* Error Alert */}
@@ -86,13 +87,25 @@ function Login({ onLoginSuccess }) {
                             <TextField
                                 fullWidth
                                 label="Password"
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 autoComplete="current-password"
                                 variant="outlined"
                                 className="login-input"
+                            />
+
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={showPassword}
+                                        onChange={(e) => setShowPassword(e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label="Show password"
+                                className="show-password-checkbox"
                             />
 
                             <Button
@@ -109,11 +122,14 @@ function Login({ onLoginSuccess }) {
 
                         {/* Contact Message */}
                         <Box className="login-footer">
-                            <Typography variant="body2" className="login-footer-text">
-                                Want to try this app? Please reach out to{' '}
+                            <Typography variant="body2" className="login-footer-text" style={{ marginBottom: '8px' }}>
+                                Need help?{' '}
                                 <a href="mailto:dpnsharr@gmail.com" className="login-footer-link">
-                                    dpnsharr@gmail.com
+                                    Contact Support
                                 </a>
+                            </Typography>
+                            <Typography variant="body2" className="login-footer-text" style={{ fontSize: '12px', color: '#718096' }}>
+                                © 2026 Provider Performance OS. All rights reserved.
                             </Typography>
                         </Box>
                     </Box>
