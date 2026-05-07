@@ -5,12 +5,15 @@ import { Select, MenuItem, FormControl } from '@mui/material';
 import { organizationsAPI } from './api';
 import { logout } from './authUtils';
 
-const Navbar = ({ isAdmin = true, onOrganizationChange, user: authUser }) => {
+const Navbar = ({ onOrganizationChange, user: authUser }) => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [organizations, setOrganizations] = useState([]);
     const [selectedOrganizationId, setSelectedOrganizationId] = useState('');
     const [loading, setLoading] = useState(true);
     const menuRef = useRef(null);
+
+    // Determine if user is admin based on role
+    const isAdmin = authUser?.role === 'admin';
 
     // Get user data from auth context or use mock data
     const user = authUser || {
@@ -51,13 +54,17 @@ const Navbar = ({ isAdmin = true, onOrganizationChange, user: authUser }) => {
                 const response = await organizationsAPI.getAll();
                 if (response.data.success) {
                     setOrganizations(response.data.data);
-                    // Set first organization as default if available
+                    
+                    // Set selected organization based on user's organization_id or first available
                     if (response.data.data.length > 0) {
-                        const firstOrgId = response.data.data[0].id;
-                        setSelectedOrganizationId(firstOrgId);
+                        // For client users, use their organization_id
+                        // For admin users, use their organization_id as default but allow switching
+                        const defaultOrgId = authUser?.organization_id || response.data.data[0].id;
+                        setSelectedOrganizationId(defaultOrgId);
+                        
                         // Notify parent of initial organization
                         if (onOrganizationChange) {
-                            onOrganizationChange(firstOrgId);
+                            onOrganizationChange(defaultOrgId);
                         }
                     }
                 }
@@ -69,7 +76,7 @@ const Navbar = ({ isAdmin = true, onOrganizationChange, user: authUser }) => {
         };
 
         fetchOrganizations();
-    }, [onOrganizationChange]);
+    }, [onOrganizationChange, authUser]);
 
     // Close menu when clicking outside
     useEffect(() => {
