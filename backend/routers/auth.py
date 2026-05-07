@@ -1,14 +1,18 @@
 """
 Authentication router for AWS Cognito integration
 """
+import os
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, EmailStr
 from database import get_db_connection
-from auth import verify_cognito_token, get_user_email_from_token
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
+
+# Check if auth is disabled (dev mode)
+DISABLE_AUTH = os.getenv("REACT_APP_DISABLE_AUTH", "false").lower() == "true"
 
 
 # Response Models
@@ -28,69 +32,96 @@ class MessageResponse(BaseModel):
     message: str
 
 
-def get_current_user_from_token(authorization: str = Header(None)):
-    """Dependency to extract and verify user from Cognito JWT token"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+def log_user_action(
+    user_id: int,
+    user_email: str,
+    action: str,
+    organization_id: int,
+    success: bool = True,
+    error_message: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
+):
+    """
+    Log user actions to audit_log table
+    Skips logging if REACT_APP_DISABLE_AUTH is true (dev mode)
     
-    token = authorization.replace("Bearer ", "")
-    payload = verify_cognito_token(token)
+    Args:
+        user_id: User's database ID
+        user_email: User's email address
+        action: Action type (e.g., 'login', 'view_provider', 'switch_org')
+        organization_id: Organization ID being accessed
+        success: Whether the action was successful
+        error_message: Error message if action failed
+        resource_type: Type of resource accessed (e.g., 'provider', 'organization')
+        resource_id: ID of resource accessed
+        ip_address: Client IP address
+        user_agent: Client user agent string
+    """
+    # Skip logging in dev mode
+    if DISABLE_AUTH:
+        return
     
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    return payload
+    try:
+        cursor.execute("""
+            INSERT INTO audit_log (
+                user_id, user_email, action, organization_id, success,
+                error_message, resource_type, resource_id, ip_address, user_agent
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, user_email, action, organization_id, success,
+            error_message, resource_type, resource_id, ip_address, user_agent
+        ))
+        conn.commit()
+    except Exception as e:
+        print(f"Error logging audit entry: {e}")
+        # Don't fail the request if logging fails
+    finally:
+        cursor.close()
+        conn.close()
 
 
 @router.get("/verify", response_model=VerifyResponse)
-async def verify(user_data: dict = Depends(get_current_user_from_token)):
+async def verify(request: Request, user: dict = Depends(get_current_user)):
     """
     Verify Cognito JWT token and return user information from database
+    Logs successful logins to audit_log
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Extract email from Cognito token
-        email = user_data.get('email') or user_data.get('username')
-        
-        if not email:
-            raise HTTPException(status_code=401, detail="No email found in token")
-        
-        # Get user data from database
-        cursor.execute("""
-            SELECT id, email, full_name, role, organization_id, active_flag, login_enabled
-            FROM users
-            WHERE email = %s
-        """, (email,))
-        
-        user = cursor.fetchone()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found in database. Please contact administrator.")
-        
-        user_id, email, full_name, role, org_id, active_flag, login_enabled = user
-        
-        if not active_flag:
-            raise HTTPException(status_code=403, detail="User account is inactive")
-        
-        if not login_enabled:
-            raise HTTPException(status_code=403, detail="Login is currently disabled for this account")
-        
         # Update last login
         cursor.execute("""
             UPDATE users 
             SET last_login = %s 
             WHERE id = %s
-        """, (datetime.now(), user_id))
+        """, (datetime.now(), user["id"]))
         conn.commit()
         
+        # Log successful login
+        log_user_action(
+            user_id=user["id"],
+            user_email=user["email"],
+            action="login",
+            organization_id=user["organization_id"],
+            success=True,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+        
         user_info = {
-            "id": user_id,
-            "email": email,
-            "full_name": full_name,
-            "role": role,
-            "organization_id": org_id
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "role": user["role"],
+            "organization_id": user["organization_id"]
         }
         
         return VerifyResponse(
@@ -110,89 +141,17 @@ async def verify(user_data: dict = Depends(get_current_user_from_token)):
 
 
 @router.get("/me")
-async def get_current_user(user_data: dict = Depends(get_current_user_from_token)):
+async def get_me(user: dict = Depends(get_current_user)):
     """
     Get current user information from Cognito JWT token and database
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Extract email from Cognito token
-        email = user_data.get('email') or user_data.get('username')
-        
-        if not email:
-            raise HTTPException(status_code=401, detail="No email found in token")
-        
-        # Get user data from database
-        cursor.execute("""
-            SELECT id, email, full_name, role, organization_id
-            FROM users
-            WHERE email = %s AND active_flag = TRUE AND login_enabled = TRUE
-        """, (email,))
-        
-        user = cursor.fetchone()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_id, email, full_name, role, org_id = user
-        
-        return {
-            "success": True,
-            "user": {
-                "id": user_id,
-                "email": email,
-                "full_name": full_name,
-                "role": role,
-                "organization_id": org_id,
-                "cognito_sub": user_data.get('sub')
-            }
+    return {
+        "success": True,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "role": user["role"],
+            "organization_id": user["organization_id"]
         }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Get user error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@router.post("/sync-user", response_model=MessageResponse)
-async def sync_user(
-    request: SyncUserRequest,
-    user_data: dict = Depends(get_current_user_from_token)
-):
-    """
-    Sync user information from Cognito to local database
-    This can be called after first Cognito login to update user details
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        email = user_data.get('email') or user_data.get('username')
-        
-        # Update user full_name if it exists
-        cursor.execute("""
-            UPDATE users 
-            SET full_name = %s
-            WHERE email = %s
-        """, (request.full_name, email))
-        
-        conn.commit()
-        
-        return MessageResponse(
-            success=True,
-            message="User information synced successfully"
-        )
-        
-    except Exception as e:
-        print(f"Sync user error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to sync user information")
-    finally:
-        cursor.close()
-        conn.close()
-
+    }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAuthToken } from './authUtils';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -9,6 +10,40 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Add request interceptor to attach authentication token
+api.interceptors.request.use(
+  async (config) => {
+    // Skip token for health check endpoints
+    if (config.url === '/api/health' || config.url === '/') {
+      return config;
+    }
+
+    // Get token from Amplify/Cognito
+    const token = await getAuthToken();
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - could redirect to login
+      console.error('Authentication error:', error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Health Check API
 export const healthAPI = {

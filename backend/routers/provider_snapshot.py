@@ -1,11 +1,15 @@
 """
 Provider Snapshot API Router
 Provides executive-level provider performance summary
+Implements role-based access control:
+- admin role: Can see all providers
+- client role: Can only see providers from their organization
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Optional
 from datetime import date
 from database import get_db_cursor
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/providers", tags=["providers"])
 
@@ -13,6 +17,7 @@ router = APIRouter(prefix="/api/providers", tags=["providers"])
 @router.get("/{provider_id}/snapshot")
 async def get_provider_snapshot(
     provider_id: int,
+    user: dict = Depends(get_current_user),
     reporting_period: Optional[str] = Query(
         default="2025-12-31",
         description="Reporting period in YYYY-MM-DD format"
@@ -20,6 +25,10 @@ async def get_provider_snapshot(
 ):
     """
     Get provider snapshot with key metrics
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
     
     Returns:
     - Provider information
@@ -45,6 +54,37 @@ async def get_provider_snapshot(
             )
         
         with get_db_cursor() as cursor:
+            # First check if provider exists and get its organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
             # Main snapshot query using parameterized queries
             # NO string concatenation - 100% injection-safe
             cursor.execute("""
@@ -156,9 +196,10 @@ async def get_provider_snapshot(
 
 @router.get("")
 async def get_all_providers(
+    user: dict = Depends(get_current_user),
     organization_id: Optional[int] = Query(
         default=None,
-        description="Filter by organization ID"
+        description="Filter by organization ID (admin only)"
     ),
     active_only: bool = Query(
         default=True,
@@ -167,6 +208,10 @@ async def get_all_providers(
 ):
     """
     Get all providers with optional filtering
+    
+    Access Control:
+    - Admins: Can see providers from any organization (use organization_id param)
+    - Clients: Can only see providers from their organization (organization_id param ignored)
     
     Returns basic provider list for dropdown/selection
     """
@@ -189,9 +234,16 @@ async def get_all_providers(
             
             params = []
             
-            if organization_id is not None:
+            # Access control: client users can only see their own organization
+            if user["role"] == "admin":
+                # Admin can filter by organization_id parameter
+                if organization_id is not None:
+                    query += " AND p.organization_id = %s"
+                    params.append(organization_id)
+            else:
+                # Client users are restricted to their own organization
                 query += " AND p.organization_id = %s"
-                params.append(organization_id)
+                params.append(user["organization_id"])
             
             if active_only:
                 query += " AND p.active_flag = TRUE"
@@ -218,10 +270,15 @@ async def get_all_providers(
 @router.get("/{provider_id}/domains")
 async def get_provider_domain_breakdown(
     provider_id: int,
+    user: dict = Depends(get_current_user),
     reporting_period: Optional[str] = Query(default="2025-12-31")
 ):
     """
     Get detailed domain performance breakdown for a provider
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
     """
     try:
         # Validate date
@@ -231,6 +288,37 @@ async def get_provider_domain_breakdown(
             raise HTTPException(status_code=400, detail="Invalid date format")
         
         with get_db_cursor() as cursor:
+            # First check if provider exists and get its organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
             cursor.execute("""
                 SELECT 
                     ds.id,

@@ -2,11 +2,13 @@
 Authentication utilities for AWS Cognito JWT token verification
 """
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
+from fastapi import Header, HTTPException
 from jose import jwt
 from jose.exceptions import JWTError, ExpiredSignatureError
 import requests
 import json
+from database import get_db_connection
 
 # AWS Cognito Configuration
 COGNITO_REGION = os.getenv("COGNITO_REGION", "us-east-1")
@@ -98,42 +100,99 @@ def verify_cognito_token(token: str) -> Optional[dict]:
     except JWTError as e:
         print(f"JWT verification error: {e}")
         return None
-    except Exception as e:
-        print(f"Unexpected error verifying token: {e}")
-        return None
 
 
-def get_user_email_from_token(token: str) -> Optional[str]:
+def get_user_from_database(email: str) -> Optional[Dict[str, Any]]:
     """
-    Extract user email from Cognito token
+    Get user data from database by email
     
     Args:
-        token: The JWT token from Cognito
+        email: User's email address
         
     Returns:
-        The user's email if found, None otherwise
+        User data dictionary if found and active, None otherwise
     """
-    payload = verify_cognito_token(token)
-    if not payload:
-        return None
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    # Email can be in 'email' or 'username' field depending on token type
-    return payload.get('email') or payload.get('username')
+    try:
+        cursor.execute("""
+            SELECT id, email, full_name, role, organization_id, active_flag, login_enabled
+            FROM users
+            WHERE email = %s
+        """, (email,))
+        
+        user_row = cursor.fetchone()
+        
+        if not user_row:
+            return None
+        
+        user_id, email, full_name, role, org_id, active_flag, login_enabled = user_row
+        
+        if not active_flag or not login_enabled:
+            return None
+        
+        return {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "role": role,
+            "organization_id": org_id,
+            "active_flag": active_flag,
+            "login_enabled": login_enabled
+        }
+    finally:
+        cursor.close()
+        conn.close()
 
 
-def get_user_sub_from_token(token: str) -> Optional[str]:
+def get_current_user(authorization: str = Header(None)) -> Dict[str, Any]:
     """
-    Extract user sub (unique identifier) from Cognito token
+    FastAPI dependency to extract and verify user from Cognito JWT token
+    
+    This is the main authentication dependency that should be used in all protected routes.
+    It verifies the token, checks the user exists in database, and returns user data.
     
     Args:
-        token: The JWT token from Cognito
+        authorization: Authorization header with Bearer token
         
     Returns:
-        The user's sub (unique ID) if found, None otherwise
+        User data dictionary with id, email, full_name, role, organization_id
+        
+    Raises:
+        HTTPException: 401 if token is missing/invalid or user not found/inactive
     """
-    payload = verify_cognito_token(token)
-    if not payload:
-        return None
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, 
+            detail="Missing or invalid authorization header"
+        )
     
-    return payload.get('sub')
-
+    token = authorization.replace("Bearer ", "")
+    payload = verify_cognito_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid or expired token"
+        )
+    
+    # Extract email from token
+    email = payload.get('email') or payload.get('username')
+    
+    if not email:
+        raise HTTPException(
+            status_code=401, 
+            detail="No email found in token"
+        )
+    
+    # Get user from database
+    user = get_user_from_database(email)
+    
+    if not user:
+        raise HTTPException(
+            status_code=403, 
+            detail="User not found or account is inactive"
+        )
+    
+    return user
