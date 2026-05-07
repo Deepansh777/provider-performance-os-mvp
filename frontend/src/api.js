@@ -67,6 +67,8 @@ export const providersAPI = {
     api.get(`/api/providers/${providerId}/snapshot?reporting_period=${reportingPeriod}`),
   getDomains: (providerId, reportingPeriod = '2025-12-31') =>
     api.get(`/api/providers/${providerId}/domains?reporting_period=${reportingPeriod}`),
+  getBenchmarkComparison: (providerId, reportingPeriod = '2025-12-31') =>
+    api.get(`/api/providers/${providerId}/benchmark-comparison?reporting_period=${reportingPeriod}`),
 };
 
 export default api;

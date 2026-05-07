@@ -352,3 +352,105 @@ async def get_provider_domain_breakdown(
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{provider_id}/benchmark-comparison")
+async def get_provider_benchmark_comparison(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    reporting_period: Optional[str] = Query(default="2025-12-31")
+):
+    """
+    Get benchmark comparison metrics for Performance vs Network visualization
+    
+    Returns key metrics with provider value, network average, and percentile
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    """
+    try:
+        # Validate date
+        try:
+            date.fromisoformat(reporting_period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+        
+        with get_db_cursor() as cursor:
+            # First check if provider exists and get its organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
+            # Query for benchmark comparison metrics
+            cursor.execute("""
+                SELECT 
+                    md.metric_display_name,
+                    md.unit_type,
+                    md.direction,
+                    pmr.metric_value as provider_value,
+                    pmr.benchmark_value as network_avg,
+                    pmr.percentile,
+                    pmr.status
+                FROM provider_metric_results pmr
+                INNER JOIN metric_definitions md ON pmr.metric_definition_id = md.id
+                WHERE pmr.provider_id = %s
+                    AND pmr.reporting_period = %s::DATE
+                    AND md.metric_name IN (
+                        'total_cost_pmpm',
+                        'admissions_per_1000',
+                        'er_visits_per_1000',
+                        'readmission_rate_30d',
+                        'quality_score_r12',
+                        'referral_rate_100_pcp'
+                    )
+                ORDER BY 
+                    CASE md.metric_name
+                        WHEN 'total_cost_pmpm' THEN 1
+                        WHEN 'admissions_per_1000' THEN 2
+                        WHEN 'er_visits_per_1000' THEN 3
+                        WHEN 'readmission_rate_30d' THEN 4
+                        WHEN 'quality_score_r12' THEN 5
+                        WHEN 'referral_rate_100_pcp' THEN 6
+                    END
+            """, (provider_id, reporting_period))
+            
+            metrics = cursor.fetchall()
+            
+            return {
+                "success": True,
+                "data": metrics,
+                "count": len(metrics)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

@@ -2,7 +2,7 @@ import React from 'react';
 import VisualizationCard from '../components/VisualizationCard';
 import EarningsWaterfallChart from '../components/EarningsWaterfallChart';
 
-const PerformanceCommandCenter = ({ snapshot, domains }) => {
+const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
   // Format currency
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return '$0';
@@ -18,6 +18,44 @@ const PerformanceCommandCenter = ({ snapshot, domains }) => {
   const formatPercent = (value) => {
     if (value === null || value === undefined) return '0%';
     return `${parseFloat(value).toFixed(1)}%`;
+  };
+
+  // Format number with appropriate precision
+  const formatNumber = (value, unitType) => {
+    if (value === null || value === undefined) return '0';
+
+    if (unitType === 'PMPM' || unitType === '$') {
+      return formatCurrency(value);
+    } else if (unitType === '%') {
+      return formatPercent(value);
+    } else if (unitType === '/1000' || unitType === '/100') {
+      return parseFloat(value).toFixed(1);
+    } else if (unitType === 'score') {
+      return parseFloat(value).toFixed(1);
+    } else if (unitType === 'days') {
+      return parseFloat(value).toFixed(1);
+    }
+
+    return parseFloat(value).toFixed(1);
+  };
+
+  // Determine performance status based on direction and percentile
+  const getPerformanceStatus = (direction, percentile) => {
+    if (!percentile) return 'neutral';
+
+    // For "lower is better" metrics, invert the logic
+    if (direction === 'lower_better') {
+      if (percentile >= 70) return 'excellent';  // Top 30% (lower values are better)
+      if (percentile >= 50) return 'good';
+      if (percentile >= 30) return 'fair';
+      return 'poor';
+    } else {
+      // For "higher is better" metrics
+      if (percentile >= 70) return 'excellent';
+      if (percentile >= 50) return 'good';
+      if (percentile >= 30) return 'fair';
+      return 'poor';
+    }
   };
 
   // Calculate missed opportunity
@@ -237,23 +275,120 @@ const PerformanceCommandCenter = ({ snapshot, domains }) => {
             </VisualizationCard>
           )}
 
-          {/* Earnings Waterfall Chart */}
+          {/* Split Row: Earnings Waterfall Chart + Performance vs Network */}
           {domains && domains.length > 0 && (
-            <VisualizationCard
-              title="Earnings Waterfall"
-              data={domains}
-              csvFilename={`earnings-waterfall-${snapshot.provider_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`}
-              csvHeaders={['Domain', 'Earned ($)', 'Missed ($)', 'Available ($)', 'Capture Rate (%)']}
-              csvMapper={(domain) => [
-                domain.domain_name,
-                domain.earned_amount,
-                domain.missed_amount,
-                domain.available_amount,
-                domain.capture_rate.toFixed(1)
-              ]}
-            >
-              <EarningsWaterfallChart domains={domains} />
-            </VisualizationCard>
+            <div style={{
+              display: 'flex',
+              gap: '24px',
+              width: '100%'
+            }}>
+              {/* Earnings Waterfall Chart */}
+              <div style={{ flex: '0 0 calc(50% - 12px)', minWidth: 0 }}>
+                <VisualizationCard
+                  title="Earnings Waterfall"
+                  data={domains}
+                  csvFilename={`earnings-waterfall-${snapshot.provider_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`}
+                  csvHeaders={['Domain', 'Earned ($)', 'Missed ($)', 'Available ($)', 'Capture Rate (%)']}
+                  csvMapper={(domain) => [
+                    domain.domain_name,
+                    domain.earned_amount,
+                    domain.missed_amount,
+                    domain.available_amount,
+                    domain.capture_rate.toFixed(1)
+                  ]}
+                >
+                  <EarningsWaterfallChart domains={domains} />
+                </VisualizationCard>
+              </div>
+
+              {/* Performance vs Network Benchmark Table */}
+              {benchmarkMetrics && benchmarkMetrics.length > 0 && (
+                <div style={{ flex: '0 0 calc(50% - 12px)', minWidth: 0 }}>
+                  <VisualizationCard
+                    title="Performance vs Network"
+                    data={benchmarkMetrics}
+                    csvFilename={`performance-vs-network-${snapshot.provider_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`}
+                    csvHeaders={['Metric', 'Your Value', 'Network Avg', 'Percentile', 'Status']}
+                    csvMapper={(metric) => [
+                      metric.metric_display_name,
+                      formatNumber(metric.provider_value, metric.unit_type),
+                      formatNumber(metric.network_avg, metric.unit_type),
+                      metric.percentile,
+                      metric.status
+                    ]}
+                  >
+                    <div className="benchmark-comparison-table">
+                      <table className="domain-table">
+                        <thead>
+                          <tr>
+                            <th className="text-left">Metric</th>
+                            <th className="text-right">Your Value</th>
+                            <th className="text-right">Network Avg</th>
+                            <th className="text-center">Percentile</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {benchmarkMetrics.map((metric, index) => {
+                            const status = getPerformanceStatus(metric.direction, metric.percentile);
+                            const statusColors = {
+                              excellent: { bg: '#10b981', text: '#10b981' },
+                              good: { bg: '#3b82f6', text: '#3b82f6' },
+                              fair: { bg: '#f59e0b', text: '#f59e0b' },
+                              poor: { bg: '#ef4444', text: '#ef4444' },
+                              neutral: { bg: '#6b7280', text: '#6b7280' }
+                            };
+                            const colors = statusColors[status] || statusColors.neutral;
+
+                            return (
+                              <tr key={index} className="domain-row">
+                                <td className="text-left" style={{ fontWeight: '500' }}>
+                                  {metric.metric_display_name}
+                                </td>
+                                <td className="text-right">
+                                  <span style={{
+                                    color: '#1f2937',
+                                    fontWeight: '600'
+                                  }}>
+                                    {formatNumber(metric.provider_value, metric.unit_type)}
+                                  </span>
+                                </td>
+                                <td className="text-right" style={{ color: '#6b7280' }}>
+                                  {formatNumber(metric.network_avg, metric.unit_type)}
+                                </td>
+                                <td className="text-center">
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '0.375rem 0.75rem',
+                                      borderRadius: '8px',
+                                      fontWeight: '700',
+                                      fontSize: '0.875rem',
+                                      background: colors.bg,
+                                      color: 'white'
+                                    }}>
+                                      {metric.percentile}th
+                                    </span>
+                                    <div className="capture-bar" style={{ width: '100%', maxWidth: '120px' }}>
+                                      <div
+                                        className="capture-bar-fill"
+                                        style={{
+                                          width: `${metric.percentile}%`,
+                                          backgroundColor: colors.bg
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </VisualizationCard>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (

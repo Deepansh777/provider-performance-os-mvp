@@ -33,6 +33,7 @@ function App() {
   // App state
   const [snapshot, setSnapshot] = useState(null);
   const [domains, setDomains] = useState(null);
+  const [benchmarkMetrics, setBenchmarkMetrics] = useState(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -108,22 +109,26 @@ function App() {
         // Get the first provider's ID
         const firstProviderId = providersResponse.data.data[0].id;
 
-        // Fetch snapshot and domains for the first provider, reporting period Dec-25
-        const [snapshotResponse, domainsResponse] = await Promise.all([
+        // Fetch snapshot, domains, and benchmark metrics for the first provider, reporting period Dec-25
+        const [snapshotResponse, domainsResponse, benchmarkResponse] = await Promise.all([
           providersAPI.getSnapshot(firstProviderId, '2025-12-31'),
-          providersAPI.getDomains(firstProviderId, '2025-12-31')
+          providersAPI.getDomains(firstProviderId, '2025-12-31'),
+          providersAPI.getBenchmarkComparison(firstProviderId, '2025-12-31')
         ]);
 
         setSnapshot(snapshotResponse.data.data);
         setDomains(domainsResponse.data.data);
+        setBenchmarkMetrics(benchmarkResponse.data.data);
       } else {
         setSnapshot(null);
         setDomains(null);
+        setBenchmarkMetrics(null);
       }
     } catch (err) {
       console.error('Failed to fetch provider data:', err);
       setSnapshot(null);
       setDomains(null);
+      setBenchmarkMetrics(null);
     }
   }, []);
 
@@ -172,7 +177,7 @@ function App() {
           <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''}`}>
             <Routes>
               <Route path="/" element={<Navigate to="/performance" replace />} />
-              <Route path="/performance" element={<PerformanceCommandCenter snapshot={snapshot} domains={domains} />} />
+              <Route path="/performance" element={<PerformanceCommandCenter snapshot={snapshot} domains={domains} benchmarkMetrics={benchmarkMetrics} />} />
               <Route path="/population" element={<PopulationRiskIntelligence snapshot={snapshot} />} />
               <Route path="/quality" element={<QualityAccessImprovement snapshot={snapshot} />} />
               <Route path="/cost" element={<CostUtilizationControl snapshot={snapshot} />} />

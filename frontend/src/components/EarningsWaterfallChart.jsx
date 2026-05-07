@@ -122,7 +122,7 @@ const EarningsWaterfallChart = ({ domains }) => {
     const chartOptions = {
         chart: {
             type: 'waterfall',
-            height: 280,
+            height: 400,
             backgroundColor: 'transparent',
             style: {
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'

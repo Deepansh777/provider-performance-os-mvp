@@ -6,6 +6,7 @@
     border: 1px solid #e5e7eb;
     margin-bottom: 2rem;
     position: relative;
+    contain: layout;
 }
 
 .visualization-export-area {
