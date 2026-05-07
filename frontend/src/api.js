@@ -21,11 +21,11 @@ api.interceptors.request.use(
 
     // Get token from Amplify/Cognito
     const token = await getAuthToken();
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
