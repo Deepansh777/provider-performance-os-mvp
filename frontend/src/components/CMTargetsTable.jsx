@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import './CMTargetsTable.css';
 
 const CMTargetsTable = ({ targets }) => {
-  if (!targets || targets.length === 0) {
-    return <div className="cm-targets-empty">No high-priority targets identified</div>;
-  }
+  const [sortField, setSortField] = useState('predicted_admit_probability');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   // Format date
   const formatDate = (dateStr) => {
@@ -33,12 +32,66 @@ const CMTargetsTable = ({ targets }) => {
     }
   };
 
+  // Handle column sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to descending for numeric fields, ascending for text
+      setSortField(field);
+      setSortDirection(['predicted_admit_probability', 'open_care_gaps'].includes(field) ? 'desc' : 'asc');
+    }
+  };
+
+  // Sort targets based on current sort field and direction
+  const sortedTargets = useMemo(() => {
+    if (!targets || targets.length === 0) return [];
+    const sorted = [...targets].sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      // Handle date fields
+      if (sortField === 'last_pcp_visit') {
+        aVal = aVal ? new Date(aVal).getTime() : 0;
+        bVal = bVal ? new Date(bVal).getTime() : 0;
+      }
+
+      // Handle boolean fields
+      if (typeof aVal === 'boolean') {
+        aVal = aVal ? 1 : 0;
+        bVal = bVal ? 1 : 0;
+      }
+
+      // Handle null/undefined
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      // Compare
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [targets, sortField, sortDirection]);
+
+  // Get sort indicator
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return ' ↕';
+    return sortDirection === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  // Check if targets is empty after all hooks are called
+  if (!targets || targets.length === 0) {
+    return <div className="cm-targets-empty">No high-priority targets identified</div>;
+  }
+
   return (
     <div className="cm-targets-container">
       <div className="cm-targets-header">
         <h3>HIGH-PRIORITY CM TARGETS — Members with Predicted Admission Probability ≥ 30%</h3>
         <p className="cm-targets-subtitle">
-          Members below are the highest-priority outreach targets based on projected admission probability. 
+          Members below are the highest-priority outreach targets based on projected admission probability.
           Data sourced from predictive model code in claims data. Outreach within 30 days recommended for all ≥50%; within 7 days for ≥50%.
         </p>
       </div>
@@ -47,21 +100,43 @@ const CMTargetsTable = ({ targets }) => {
         <table className="cm-targets-table">
           <thead>
             <tr>
-              <th>Member ID</th>
-              <th>Risk Tier</th>
-              <th>Predicted Admit Prob %</th>
-              <th>Primary Condition(s)</th>
-              <th>Last PCP Visit</th>
-              <th>TCM Enrolled?</th>
-              <th>No PCP Visit &gt;12 Mo?</th>
-              <th>Open Care Gaps?</th>
-              <th>ER Utilizer (12+ visits)?</th>
-              <th>Post-Discharge?</th>
-              <th>Admit Prob Urgency</th>
+              <th onClick={() => handleSort('member_external_id')} style={{ cursor: 'pointer' }}>
+                Member ID{getSortIndicator('member_external_id')}
+              </th>
+              <th onClick={() => handleSort('risk_tier')} style={{ cursor: 'pointer' }}>
+                Risk Tier{getSortIndicator('risk_tier')}
+              </th>
+              <th onClick={() => handleSort('predicted_admit_probability')} style={{ cursor: 'pointer' }}>
+                Predicted Admit Prob %{getSortIndicator('predicted_admit_probability')}
+              </th>
+              <th onClick={() => handleSort('primary_conditions')} style={{ cursor: 'pointer' }}>
+                Primary Condition(s){getSortIndicator('primary_conditions')}
+              </th>
+              <th onClick={() => handleSort('last_pcp_visit')} style={{ cursor: 'pointer' }}>
+                Last PCP Visit{getSortIndicator('last_pcp_visit')}
+              </th>
+              <th onClick={() => handleSort('tcm_enrolled')} style={{ cursor: 'pointer' }}>
+                TCM Enrolled?{getSortIndicator('tcm_enrolled')}
+              </th>
+              <th onClick={() => handleSort('no_pcp_visit_12mo')} style={{ cursor: 'pointer' }}>
+                No PCP Visit &gt;12 Mo?{getSortIndicator('no_pcp_visit_12mo')}
+              </th>
+              <th onClick={() => handleSort('open_care_gaps')} style={{ cursor: 'pointer' }}>
+                Open Care Gaps?{getSortIndicator('open_care_gaps')}
+              </th>
+              <th onClick={() => handleSort('er_utilizer_flag')} style={{ cursor: 'pointer' }}>
+                ER Utilizer (12+ visits)?{getSortIndicator('er_utilizer_flag')}
+              </th>
+              <th onClick={() => handleSort('post_discharge_flag')} style={{ cursor: 'pointer' }}>
+                Post-Discharge?{getSortIndicator('post_discharge_flag')}
+              </th>
+              <th onClick={() => handleSort('urgency_level')} style={{ cursor: 'pointer' }}>
+                Admit Prob Urgency{getSortIndicator('urgency_level')}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {targets.map((target, index) => (
+            {sortedTargets.map((target, index) => (
               <tr key={index} className="cm-target-row">
                 <td className="member-id">{target.member_external_id}</td>
                 <td>

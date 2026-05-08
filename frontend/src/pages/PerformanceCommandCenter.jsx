@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import VisualizationCard from '../components/VisualizationCard';
 import EarningsWaterfallChart from '../components/EarningsWaterfallChart';
 
 const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
+  // State for sorting Domain Performance table
+  const [domainSortField, setDomainSortField] = useState('capture_rate');
+  const [domainSortDirection, setDomainSortDirection] = useState('asc');
+
+  // State for sorting Benchmark Metrics table
+  const [benchmarkSortField, setBenchmarkSortField] = useState('percentile');
+  const [benchmarkSortDirection, setBenchmarkSortDirection] = useState('desc');
+
   // Format currency
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return '$0';
@@ -62,6 +70,69 @@ const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
   const calculateMissedOpportunity = () => {
     if (!snapshot) return 0;
     return (snapshot.total_available_pool || 0) - (snapshot.total_earned || 0);
+  };
+
+  // Handle domain table sorting
+  const handleDomainSort = (field) => {
+    if (domainSortField === field) {
+      setDomainSortDirection(domainSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDomainSortField(field);
+      setDomainSortDirection('asc');
+    }
+  };
+
+  // Handle benchmark table sorting
+  const handleBenchmarkSort = (field) => {
+    if (benchmarkSortField === field) {
+      setBenchmarkSortDirection(benchmarkSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setBenchmarkSortField(field);
+      setBenchmarkSortDirection('asc');
+    }
+  };
+
+  // Sort domains
+  const sortedDomains = useMemo(() => {
+    if (!domains || domains.length === 0) return [];
+    return [...domains].sort((a, b) => {
+      let aVal = a[domainSortField];
+      let bVal = b[domainSortField];
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (aVal < bVal) return domainSortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return domainSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [domains, domainSortField, domainSortDirection]);
+
+  // Sort benchmark metrics
+  const sortedBenchmarkMetrics = useMemo(() => {
+    if (!benchmarkMetrics || benchmarkMetrics.length === 0) return [];
+    return [...benchmarkMetrics].sort((a, b) => {
+      let aVal = a[benchmarkSortField];
+      let bVal = b[benchmarkSortField];
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (aVal < bVal) return benchmarkSortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return benchmarkSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [benchmarkMetrics, benchmarkSortField, benchmarkSortDirection]);
+
+  // Get sort indicator
+  const getDomainSortIndicator = (field) => {
+    if (domainSortField !== field) return ' ↕';
+    return domainSortDirection === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const getBenchmarkSortIndicator = (field) => {
+    if (benchmarkSortField !== field) return ' ↕';
+    return benchmarkSortDirection === 'asc' ? ' ↑' : ' ↓';
   };
 
   return (
@@ -203,19 +274,37 @@ const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
                 <table className="domain-table">
                   <thead>
                     <tr>
-                      <th className="domain-name-col">Domain</th>
-                      <th>Weight</th>
-                      <th>R12 Score</th>
-                      <th>Benchmark</th>
-                      <th>vs Benchmark</th>
-                      <th>Available ($)</th>
-                      <th>Earned ($)</th>
-                      <th>Missed ($)</th>
-                      <th>Capture %</th>
+                      <th className="domain-name-col" onClick={() => handleDomainSort('domain_name')} style={{ cursor: 'pointer' }}>
+                        Domain{getDomainSortIndicator('domain_name')}
+                      </th>
+                      <th onClick={() => handleDomainSort('domain_weight')} style={{ cursor: 'pointer' }}>
+                        Weight{getDomainSortIndicator('domain_weight')}
+                      </th>
+                      <th onClick={() => handleDomainSort('r12_score')} style={{ cursor: 'pointer' }}>
+                        R12 Score{getDomainSortIndicator('r12_score')}
+                      </th>
+                      <th onClick={() => handleDomainSort('benchmark_score')} style={{ cursor: 'pointer' }}>
+                        Benchmark{getDomainSortIndicator('benchmark_score')}
+                      </th>
+                      <th onClick={() => handleDomainSort('vs_benchmark')} style={{ cursor: 'pointer' }}>
+                        vs Benchmark{getDomainSortIndicator('vs_benchmark')}
+                      </th>
+                      <th onClick={() => handleDomainSort('available_amount')} style={{ cursor: 'pointer' }}>
+                        Available ($){getDomainSortIndicator('available_amount')}
+                      </th>
+                      <th onClick={() => handleDomainSort('earned_amount')} style={{ cursor: 'pointer' }}>
+                        Earned ($){getDomainSortIndicator('earned_amount')}
+                      </th>
+                      <th onClick={() => handleDomainSort('missed_amount')} style={{ cursor: 'pointer' }}>
+                        Missed ($){getDomainSortIndicator('missed_amount')}
+                      </th>
+                      <th onClick={() => handleDomainSort('capture_rate')} style={{ cursor: 'pointer' }}>
+                        Capture %{getDomainSortIndicator('capture_rate')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {domains.map((domain) => (
+                    {sortedDomains.map((domain) => (
                       <tr key={domain.id} className="domain-row">
                         <td className="domain-name">
                           <div className="domain-name-wrapper">
@@ -321,14 +410,22 @@ const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
                       <table className="domain-table">
                         <thead>
                           <tr>
-                            <th className="text-left">Metric</th>
-                            <th className="text-right">Your Value</th>
-                            <th className="text-right">Network Avg</th>
-                            <th className="text-center">Percentile</th>
+                            <th className="text-left" onClick={() => handleBenchmarkSort('metric_display_name')} style={{ cursor: 'pointer' }}>
+                              Metric{getBenchmarkSortIndicator('metric_display_name')}
+                            </th>
+                            <th className="text-right" onClick={() => handleBenchmarkSort('provider_value')} style={{ cursor: 'pointer' }}>
+                              Your Value{getBenchmarkSortIndicator('provider_value')}
+                            </th>
+                            <th className="text-right" onClick={() => handleBenchmarkSort('network_avg')} style={{ cursor: 'pointer' }}>
+                              Network Avg{getBenchmarkSortIndicator('network_avg')}
+                            </th>
+                            <th className="text-center" onClick={() => handleBenchmarkSort('percentile')} style={{ cursor: 'pointer' }}>
+                              Percentile{getBenchmarkSortIndicator('percentile')}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {benchmarkMetrics.map((metric, index) => {
+                          {sortedBenchmarkMetrics.map((metric, index) => {
                             const status = getPerformanceStatus(metric.direction, metric.percentile);
                             const statusColors = {
                               excellent: { bg: '#10b981', text: '#10b981' },
