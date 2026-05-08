@@ -6,6 +6,7 @@ import './VisualizationCard.css';
 
 const VisualizationCard = ({
     title,
+    titleVariant = 'default',
     data = [],
     csvFilename = 'export',
     csvHeaders = [],
@@ -113,11 +114,21 @@ const VisualizationCard = ({
         }
     };
 
+    // Check if titleVariant is a hex color
+    const isHexColor = titleVariant && titleVariant.startsWith('#');
+    const titleStyle = isHexColor ? { backgroundColor: titleVariant } : {};
+    const titleClass = titleVariant === 'blue' ? 'section-title-blue' : '';
+
     return (
         <div className="visualization-card" ref={contentRef}>
             <div className="visualization-export-area" ref={exportRef}>
                 <div className="visualization-header">
-                    <h2 className="section-title">{title}</h2>
+                    <h2 
+                        className={`section-title ${titleClass}`}
+                        style={titleStyle}
+                    >
+                        {title}
+                    </h2>
                 </div>
                 <div className="visualization-content">
                     {children}

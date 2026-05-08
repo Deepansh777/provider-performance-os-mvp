@@ -28,6 +28,10 @@
     margin: 0;
 }
 
+.section-title-blue {
+    background: #3b82f6;
+}
+
 .visualization-content {
     position: relative;
 }
