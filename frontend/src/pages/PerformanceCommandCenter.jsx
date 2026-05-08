@@ -121,7 +121,7 @@ const PerformanceCommandCenter = ({ snapshot, domains, benchmarkMetrics }) => {
       if (aVal < bVal) return benchmarkSortDirection === 'asc' ? -1 : 1;
       if (aVal > bVal) return benchmarkSortDirection === 'asc' ? 1 : -1;
       return 0;
-    });
+    }).slice(0, 6);
   }, [benchmarkMetrics, benchmarkSortField, benchmarkSortDirection]);
 
   // Get sort indicator
