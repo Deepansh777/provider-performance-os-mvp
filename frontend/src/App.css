@@ -264,7 +264,17 @@ button {
   gap: 1.5rem;
   margin-bottom: 1rem;
 }
+/* Two-column chart layout for side-by-side visualizations */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
 
+.chart-row .visualization-card {
+  margin-bottom: 0;
+}
 .kpi-card {
   background: white;
   border-radius: 12px;
@@ -464,6 +474,11 @@ button {
   .kpi-header-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
+  }
+
+  .chart-row {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .kpi-value {
