@@ -3,6 +3,25 @@ import React from 'react';
 const QualityAccessImprovement = ({ snapshot }) => {
   return (
     <div className="page-container">
+      {/* Under Development Banner */}
+      <div style={{
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffc107',
+        borderRadius: '4px',
+        padding: '16px 20px',
+        margin: '20px 0',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '24px' }}>🚧</span>
+        <div>
+          <strong style={{ color: '#856404', fontSize: '16px' }}>This Tab is Under Development</strong>
+          <p style={{ margin: '4px 0 0 0', color: '#856404' }}>
+            We're working hard to bring you quality metrics and access insights. Please check back later!
+          </p>
+        </div>
+      </div>
 
       {snapshot ? (
         <>
