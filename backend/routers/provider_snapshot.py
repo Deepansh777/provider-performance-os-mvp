@@ -796,3 +796,167 @@ async def get_provider_chronic_conditions(
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{provider_id}/hospital-metrics")
+async def get_provider_hospital_metrics(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    reporting_period: Optional[str] = Query(default="2025-12-31")
+):
+    """
+    Get detailed hospital cost and utilization metrics for provider
+    
+    Returns comprehensive metrics table with:
+    - R12 current value
+    - Prior 12 month value
+    - Year-over-year delta
+    - Benchmark value
+    - Variance vs benchmark
+    - Performance status (Above/At/Below)
+    - Trend direction (Improving/Worsening)
+    
+    Metrics are grouped by category:
+    - UTILIZATION: Admissions, readmissions, ER visits, avoidable ER
+    - COST: Average cost per admission, total inpatient cost PMPM
+    - POST-ACUTE & QUALITY: Observation stays, SNF/post-acute cost, hospital cost score
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    """
+    try:
+        # Validate date
+        try:
+            date.fromisoformat(reporting_period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+        
+        with get_db_cursor() as cursor:
+            # Access control check
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
+            # Query hospital metrics with full details
+            cursor.execute("""
+                WITH metric_data AS (
+                    SELECT 
+                        md.metric_name,
+                        md.metric_display_name,
+                        md.metric_category,
+                        md.unit_type,
+                        md.direction,
+                        pmr.metric_value as r12_value,
+                        pmr.prior_period_value as prior_12_value,
+                        pmr.benchmark_value,
+                        pmr.vs_benchmark,
+                        pmr.status,
+                        pmr.percentile,
+                        -- Calculate YoY delta
+                        CASE 
+                            WHEN pmr.prior_period_value IS NOT NULL AND pmr.prior_period_value != 0
+                            THEN ROUND(pmr.metric_value - pmr.prior_period_value, 2)
+                            ELSE NULL
+                        END as yoy_delta,
+                        -- Determine trend direction
+                        CASE 
+                            WHEN pmr.prior_period_value IS NULL THEN 'stable'
+                            WHEN md.direction = 'lower_better' AND pmr.metric_value < pmr.prior_period_value THEN 'improving'
+                            WHEN md.direction = 'lower_better' AND pmr.metric_value > pmr.prior_period_value THEN 'worsening'
+                            WHEN md.direction = 'higher_better' AND pmr.metric_value > pmr.prior_period_value THEN 'improving'
+                            WHEN md.direction = 'higher_better' AND pmr.metric_value < pmr.prior_period_value THEN 'worsening'
+                            ELSE 'stable'
+                        END as trend
+                    FROM provider_metric_results pmr
+                    INNER JOIN metric_definitions md ON pmr.metric_definition_id = md.id
+                    WHERE pmr.provider_id = %s
+                        AND pmr.reporting_period = %s::DATE
+                        AND md.domain_name IN ('Hospital Costs', 'Executive')
+                        AND md.metric_name IN (
+                            'admissions_per_1000',
+                            'readmission_rate_30d',
+                            'er_visits_per_1000',
+                            'avoidable_er_rate',
+                            'observation_stays_per_1000',
+                            'avg_cost_per_admission',
+                            'total_inpatient_cost_pmpm',
+                            'snf_post_acute_cost_pmpm',
+                            'hospital_cost_score'
+                        )
+                )
+                SELECT 
+                    metric_name,
+                    metric_display_name,
+                    metric_category,
+                    unit_type,
+                    direction,
+                    r12_value,
+                    prior_12_value,
+                    yoy_delta,
+                    benchmark_value,
+                    vs_benchmark,
+                    status,
+                    percentile,
+                    trend
+                FROM metric_data
+                ORDER BY 
+                    CASE metric_category
+                        WHEN 'utilization' THEN 1
+                        WHEN 'cost' THEN 2
+                        WHEN 'score' THEN 3
+                        ELSE 4
+                    END,
+                    CASE metric_name
+                        WHEN 'admissions_per_1000' THEN 1
+                        WHEN 'readmission_rate_30d' THEN 2
+                        WHEN 'er_visits_per_1000' THEN 3
+                        WHEN 'avoidable_er_rate' THEN 4
+                        WHEN 'avg_cost_per_admission' THEN 5
+                        WHEN 'total_inpatient_cost_pmpm' THEN 6
+                        WHEN 'observation_stays_per_1000' THEN 7
+                        WHEN 'snf_post_acute_cost_pmpm' THEN 8
+                        WHEN 'hospital_cost_score' THEN 9
+                        ELSE 10
+                    END
+            """, (provider_id, reporting_period))
+            
+            metrics = cursor.fetchall()
+            
+            return {
+                "success": True,
+                "data": metrics,
+                "count": len(metrics)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
