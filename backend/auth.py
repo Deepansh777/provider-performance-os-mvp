@@ -117,7 +117,7 @@ def get_user_from_database(email: str) -> Optional[Dict[str, Any]]:
     
     try:
         cursor.execute("""
-            SELECT id, email, full_name, role, organization_id, active_flag, login_enabled
+            SELECT id, email, full_name, role, organization_id, active_flag
             FROM users
             WHERE email = %s
         """, (email,))
@@ -127,9 +127,9 @@ def get_user_from_database(email: str) -> Optional[Dict[str, Any]]:
         if not user_row:
             return None
         
-        user_id, email, full_name, role, org_id, active_flag, login_enabled = user_row
+        user_id, email, full_name, role, org_id, active_flag = user_row
         
-        if not active_flag or not login_enabled:
+        if not active_flag:
             return None
         
         return {
@@ -138,8 +138,7 @@ def get_user_from_database(email: str) -> Optional[Dict[str, Any]]:
             "full_name": full_name,
             "role": role,
             "organization_id": org_id,
-            "active_flag": active_flag,
-            "login_enabled": login_enabled
+            "active_flag": active_flag
         }
     finally:
         cursor.close()

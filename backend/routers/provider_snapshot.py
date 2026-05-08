@@ -960,3 +960,121 @@ async def get_provider_hospital_metrics(
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{provider_id}/hospital-metrics-monthly")
+async def get_provider_hospital_metrics_monthly(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    months: Optional[int] = Query(default=12, description="Number of months to fetch")
+):
+    """
+    Get monthly time-series data for hospital metrics
+    
+    Returns monthly values for the last N months for all 9 hospital metrics:
+    - Utilization metrics: admissions_per_1000, er_visits_per_1000, readmission_rate_30d, 
+      avoidable_er_rate, observation_stays_per_1000
+    - Cost metrics: avg_cost_per_admission, total_inpatient_cost_pmpm, snf_post_acute_cost_pmpm
+    - Score metric: hospital_cost_score
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    """
+    try:
+        with get_db_cursor() as cursor:
+            # Access control check
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
+            # Query monthly time-series data
+            cursor.execute("""
+                SELECT 
+                    md.metric_name,
+                    md.metric_display_name,
+                    md.unit_type,
+                    pmr.reporting_period,
+                    pmr.metric_value,
+                    pmr.benchmark_value
+                FROM provider_metric_results pmr
+                INNER JOIN metric_definitions md ON pmr.metric_definition_id = md.id
+                WHERE pmr.provider_id = %s
+                    AND pmr.measurement_window = 'monthly'
+                    AND md.metric_name IN (
+                        'admissions_per_1000',
+                        'readmission_rate_30d',
+                        'er_visits_per_1000',
+                        'avoidable_er_rate',
+                        'observation_stays_per_1000',
+                        'avg_cost_per_admission',
+                        'total_inpatient_cost_pmpm',
+                        'snf_post_acute_cost_pmpm',
+                        'hospital_cost_score'
+                    )
+                    AND pmr.reporting_period >= (
+                        SELECT MAX(reporting_period) - INTERVAL '%s months'
+                        FROM provider_metric_results
+                        WHERE provider_id = %s AND measurement_window = 'monthly'
+                    )
+                ORDER BY pmr.reporting_period, md.metric_name
+            """, (provider_id, months, provider_id))
+            
+            rows = cursor.fetchall()
+            
+            # Transform data into a more convenient structure for charting
+            # Group by metric_name
+            metrics_data = {}
+            for row in rows:
+                metric_name = row['metric_name']
+                if metric_name not in metrics_data:
+                    metrics_data[metric_name] = {
+                        'metric_name': metric_name,
+                        'metric_display_name': row['metric_display_name'],
+                        'unit_type': row['unit_type'],
+                        'data': []
+                    }
+                
+                metrics_data[metric_name]['data'].append({
+                    'reporting_period': row['reporting_period'].isoformat(),
+                    'metric_value': float(row['metric_value']) if row['metric_value'] else None,
+                    'benchmark_value': float(row['benchmark_value']) if row['benchmark_value'] else None
+                })
+            
+            return {
+                "success": True,
+                "data": list(metrics_data.values()),
+                "count": len(metrics_data)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

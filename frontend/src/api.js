@@ -79,6 +79,8 @@ export const providersAPI = {
     api.get(`/api/providers/${providerId}/cm-targets?reporting_period=${reportingPeriod}`),
   getHospitalMetrics: (providerId, reportingPeriod = '2025-12-31') =>
     api.get(`/api/providers/${providerId}/hospital-metrics?reporting_period=${reportingPeriod}`),
+  getHospitalMetricsMonthly: (providerId, months = 12) =>
+    api.get(`/api/providers/${providerId}/hospital-metrics-monthly?months=${months}`),
 };
 
 export default api;

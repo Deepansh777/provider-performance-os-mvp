@@ -93,18 +93,7 @@ async def verify(request: Request, user: dict = Depends(get_current_user)):
     Verify Cognito JWT token and return user information from database
     Logs successful logins to audit_log
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
     try:
-        # Update last login
-        cursor.execute("""
-            UPDATE users 
-            SET last_login = %s 
-            WHERE id = %s
-        """, (datetime.now(), user["id"]))
-        conn.commit()
-        
         # Log successful login
         log_user_action(
             user_id=user["id"],
@@ -135,9 +124,6 @@ async def verify(request: Request, user: dict = Depends(get_current_user)):
     except Exception as e:
         print(f"Verify error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @router.get("/me")
