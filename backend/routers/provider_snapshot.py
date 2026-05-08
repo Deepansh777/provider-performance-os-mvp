@@ -262,6 +262,102 @@ async def get_all_providers(
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise HTTPException(
+            status_code=500, 
+            detail="Internal server error retrieving providers"
+        )
+
+
+@router.get("/{provider_id}/cost-summary")
+async def get_provider_cost_summary(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    reporting_period: Optional[str] = Query(
+        default="2025-12-31",
+        description="Reporting period in YYYY-MM-DD format"
+    )
+):
+    """
+    Get cost summary breakdown by category for a provider
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    
+    Returns cost categories with:
+    - R12 PMPM values
+    - YoY delta PMPM (dollar change)
+    - YoY delta percent (percentage change)
+    - Total cost
+    - Percent of total cost
+    """
+    try:
+        # Validate date format
+        try:
+            date.fromisoformat(reporting_period)
+        except ValueError:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid date format. Use YYYY-MM-DD"
+            )
+        
+        with get_db_cursor() as cursor:
+            # Check provider exists and get organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            # Get cost summary data
+            cursor.execute("""
+                SELECT 
+                    cost_category,
+                    total_cost,
+                    pmpm,
+                    yoy_delta_pmpm,
+                    yoy_delta_percent,
+                    percent_of_total_cost,
+                    measurement_window
+                FROM cost_summary
+                WHERE provider_id = %s
+                    AND reporting_period = %s::DATE
+                ORDER BY pmpm DESC
+            """, (provider_id, reporting_period))
+            
+            cost_data = cursor.fetchall()
+            
+            if not cost_data:
+                return {
+                    "success": True,
+                    "data": [],
+                    "message": "No cost data available for this period"
+                }
+            
+            return {
+                "success": True,
+                "data": cost_data
+            }
+    
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(
             status_code=500,
             detail="Internal server error retrieving providers"
         )
@@ -447,6 +543,252 @@ async def get_provider_benchmark_comparison(
                 "success": True,
                 "data": metrics,
                 "count": len(metrics)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{provider_id}/risk-stratification")
+async def get_provider_risk_stratification(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    reporting_period: Optional[str] = Query(default="2025-12-31")
+):
+    """
+    Get risk stratification data for Population & Risk Intelligence visualization
+    
+    Returns member distribution across risk tiers with aggregated metrics:
+    - High Risk (Score ≥2.25)
+    - Rising Risk (Score 1.5-2.24)
+    - Moderate Risk (Score 1.0-1.49)
+    - Low Risk (Score <1.0)
+    
+    For each tier:
+    - Member count
+    - % of panel
+    - Average risk score
+    - Average cost PMPM
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    """
+    try:
+        # Validate date
+        try:
+            date.fromisoformat(reporting_period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+        
+        with get_db_cursor() as cursor:
+            # First check if provider exists and get its organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
+            # Query for risk stratification
+            cursor.execute("""
+                WITH attributed_members AS (
+                    SELECT 
+                        ma.member_id,
+                        m.risk_score,
+                        mrm.risk_tier,
+                        mrm.avg_cost_pmpm
+                    FROM member_attribution ma
+                    INNER JOIN members m ON ma.member_id = m.id
+                    INNER JOIN member_risk_monthly mrm ON mrm.member_id = m.id
+                    WHERE ma.provider_id = %s
+                        AND ma.attribution_month = DATE_TRUNC('month', %s::DATE)
+                        AND ma.attribution_status = 'active'
+                        AND mrm.reporting_month = DATE_TRUNC('month', %s::DATE)
+                ),
+                total_members AS (
+                    SELECT COUNT(*) as total_count
+                    FROM attributed_members
+                )
+                SELECT 
+                    am.risk_tier,
+                    COUNT(*) as member_count,
+                    ROUND((COUNT(*) * 100.0 / tm.total_count), 1) as pct_of_panel,
+                    ROUND(AVG(am.risk_score), 2) as avg_risk_score,
+                    ROUND(AVG(am.avg_cost_pmpm), 2) as avg_cost_pmpm,
+                    CASE am.risk_tier
+                        WHEN 'High Risk' THEN 1
+                        WHEN 'Rising Risk' THEN 2
+                        WHEN 'Moderate Risk' THEN 3
+                        WHEN 'Low Risk' THEN 4
+                    END as sort_order
+                FROM attributed_members am
+                CROSS JOIN total_members tm
+                GROUP BY am.risk_tier, tm.total_count
+                ORDER BY sort_order ASC
+            """, (provider_id, reporting_period, reporting_period))
+            
+            risk_tiers = cursor.fetchall()
+            
+            return {
+                "success": True,
+                "data": risk_tiers,
+                "count": len(risk_tiers)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{provider_id}/chronic-conditions")
+async def get_provider_chronic_conditions(
+    provider_id: int,
+    user: dict = Depends(get_current_user),
+    reporting_period: Optional[str] = Query(default="2025-12-31")
+):
+    """
+    Get chronic condition prevalence and metrics for bubble chart visualization
+    
+    Returns for each condition:
+    - Member count (bubble size)
+    - Controlled % (X-axis)
+    - Avg Cost PMPM (Y-axis)
+    - Prevalence % (for context)
+    - Uncontrolled % (for color coding)
+    
+    Conditions tracked:
+    - Diabetes (Type 2)
+    - Hypertension
+    - CHF
+    - COPD / Asthma
+    - CKD
+    
+    Access Control:
+    - Admins: Can access any provider
+    - Clients: Can only access providers from their organization
+    """
+    try:
+        # Validate date
+        try:
+            date.fromisoformat(reporting_period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+        
+        with get_db_cursor() as cursor:
+            # First check if provider exists and get its organization_id
+            cursor.execute("""
+                SELECT organization_id, active_flag 
+                FROM providers 
+                WHERE id = %s
+            """, (provider_id,))
+            
+            provider_check = cursor.fetchone()
+            
+            if not provider_check:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} not found"
+                )
+            
+            provider_org_id = provider_check['organization_id']
+            provider_active = provider_check['active_flag']
+            
+            # Access control check for client users
+            if user["role"] != "admin" and user["organization_id"] != provider_org_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="You do not have permission to access this provider"
+                )
+            
+            if not provider_active:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Provider {provider_id} is inactive"
+                )
+            
+            # Query for chronic condition metrics
+            cursor.execute("""
+                WITH attributed_members AS (
+                    -- Get all attributed members for the provider
+                    SELECT 
+                        ma.member_id,
+                        m.risk_score,
+                        mrm.avg_cost_pmpm
+                    FROM member_attribution ma
+                    INNER JOIN members m ON ma.member_id = m.id
+                    LEFT JOIN member_risk_monthly mrm ON mrm.member_id = m.id
+                    WHERE ma.provider_id = %s
+                        AND ma.attribution_month = DATE_TRUNC('month', %s::DATE)
+                        AND ma.attribution_status = 'active'
+                        AND (mrm.reporting_month IS NULL OR mrm.reporting_month = DATE_TRUNC('month', %s::DATE))
+                ),
+                total_panel AS (
+                    SELECT COUNT(*) as total_members
+                    FROM attributed_members
+                ),
+                condition_metrics AS (
+                    -- Aggregate by condition
+                    SELECT 
+                        mc.condition_name,
+                        COUNT(DISTINCT mc.member_id) as member_count,
+                        ROUND((COUNT(DISTINCT mc.member_id) * 100.0 / tp.total_members), 1) as prevalence_pct,
+                        ROUND((COUNT(DISTINCT CASE WHEN mc.controlled_flag = TRUE THEN mc.member_id END) * 100.0 / 
+                            NULLIF(COUNT(DISTINCT mc.member_id), 0)), 1) as controlled_pct,
+                        ROUND((COUNT(DISTINCT CASE WHEN mc.controlled_flag = FALSE THEN mc.member_id END) * 100.0 / 
+                            NULLIF(COUNT(DISTINCT mc.member_id), 0)), 1) as uncontrolled_pct,
+                        ROUND(AVG(am.avg_cost_pmpm), 2) as avg_cost_pmpm
+                    FROM member_conditions mc
+                    INNER JOIN attributed_members am ON mc.member_id = am.member_id
+                    CROSS JOIN total_panel tp
+                    WHERE mc.active_flag = TRUE
+                    GROUP BY mc.condition_name, tp.total_members
+                )
+                SELECT 
+                    condition_name,
+                    member_count,
+                    prevalence_pct,
+                    COALESCE(controlled_pct, 0) as controlled_pct,
+                    COALESCE(uncontrolled_pct, 0) as uncontrolled_pct,
+                    avg_cost_pmpm
+                FROM condition_metrics
+                ORDER BY member_count DESC
+            """, (provider_id, reporting_period, reporting_period))
+            
+            conditions = cursor.fetchall()
+            
+            return {
+                "success": True,
+                "data": conditions,
+                "count": len(conditions)
             }
     
     except HTTPException:
