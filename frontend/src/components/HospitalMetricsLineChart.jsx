@@ -37,7 +37,8 @@ const HospitalMetricsLineChart = ({ monthlyData, metricNames, title, yAxisLabel,
           enabled: true,
           radius: 3
         },
-        lineWidth: 3
+        lineWidth: 3,
+        unitType: metric.unit_type
       });
 
       // Benchmark series (only add once per metric, use dashed line)
@@ -57,7 +58,8 @@ const HospitalMetricsLineChart = ({ monthlyData, metricNames, title, yAxisLabel,
           },
           lineWidth: 2,
           color: '#9ca3af',
-          enableMouseTracking: true
+          enableMouseTracking: true,
+          unitType: metric.unit_type
         });
       }
     });
@@ -115,7 +117,7 @@ const HospitalMetricsLineChart = ({ monthlyData, metricNames, title, yAxisLabel,
         verticalAlign: 'bottom',
         layout: 'horizontal',
         itemStyle: {
-          fontSize: '11px',
+          fontSize: '13px',
           color: '#374151',
           fontWeight: '400'
         }
@@ -127,15 +129,26 @@ const HospitalMetricsLineChart = ({ monthlyData, metricNames, title, yAxisLabel,
         borderRadius: 6,
         padding: 10,
         style: {
-          fontSize: '12px'
+          fontSize: '14px'
         },
         useHTML: true,
         formatter: function () {
           let tooltip = `<b>${this.x}</b><br/>`;
           this.points.forEach(point => {
             const isDashed = point.series.options.dashStyle === 'Dash';
-            const label = isDashed ? 'Benchmark' : 'Value';
-            tooltip += `<span style="color:${point.color}">\u25CF</span> ${point.series.name}: <b>${point.y?.toFixed(2)}</b><br/>`;
+            const unitType = point.series.options.unitType;
+            const isCostMetric = unitType === '$' || unitType === 'PMPM';
+
+            let formattedValue;
+            if (isCostMetric) {
+              formattedValue = '$' + point.y?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            } else if (unitType === '%') {
+              formattedValue = point.y?.toFixed(1) + '%';
+            } else {
+              formattedValue = point.y?.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+            }
+
+            tooltip += `<span style="color:${point.color}">\u25CF</span> ${point.series.name}: <b>${formattedValue}</b><br/>`;
           });
           return tooltip;
         }
