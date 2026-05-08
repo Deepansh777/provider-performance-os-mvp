@@ -55,10 +55,10 @@ CREATE TABLE providers (
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    organization_id INT NOT NULL REFERENCES organizations(id),
+    organization_id INT REFERENCES organizations(id),  -- Nullable for system admin users
     email TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
-    role TEXT NOT NULL,
+    role TEXT NOT NULL,  -- 'admin' or 'user' (legacy roles: executive, analyst, care_manager treated as 'user')
     active_flag BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
